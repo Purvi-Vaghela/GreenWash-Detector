@@ -1,6 +1,6 @@
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { Leaf, LogOut, Shield, Building2 } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Leaf, LogOut, Shield, Building2, Info } from 'lucide-react';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -26,6 +26,13 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-4">
+            <Link
+              to="/about"
+              className="flex items-center gap-1 px-3 py-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition text-sm"
+            >
+              <Info className="w-4 h-4" />
+              About
+            </Link>
             <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg">
               {user?.role === 'admin' ? (
                 <Shield className="w-4 h-4 text-blue-600" />

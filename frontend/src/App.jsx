@@ -5,6 +5,7 @@ import Register from './pages/Register';
 import AdminRegister from './pages/AdminRegister';
 import ClientDashboard from './pages/ClientDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import About from './pages/About';
 
 function ProtectedRoute({ children, requiredRole }) {
   const { user, loading } = useAuth();
@@ -46,6 +47,7 @@ function AppRoutes() {
           <AdminDashboard />
         </ProtectedRoute>
       } />
+      <Route path="/about" element={<About />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
