@@ -18,7 +18,8 @@ from .services.auth_service import (
 from .models import (
     AnalysisResult, ReportResponse, 
     UserRegister, UserLogin, UserResponse, AdminLogin,
-    AdminRegister, AdminResponse
+    AdminRegister, AdminResponse, CreditAssignment, CreditResponse,
+    CompanyWithCredits
 )
 
 @asynccontextmanager
@@ -353,3 +354,194 @@ async def get_all_users():
         })
     
     return users
+
+@app.get("/admin/companies")
+async def get_all_companies_with_data():
+    """Get all companies with their reports and credits data."""
+    db = get_database()
+    companies = []
+    
+    async for user in db.users.find().sort("created_at", -1):
+        user_id = str(user["_id"])
+        
+        # Get reports for this user
+        reports = []
+        total_score = 0
+        async for report in db.reports.find({"user_id": user_id}):
+            reports.append(report)
+            if report.get("analysis") and report["analysis"].get("scores"):
+                total_score += report["analysis"]["scores"].get("final_trust_score", 0)
+        
+        avg_score = total_score / len(reports) if reports else None
+        
+        # Get credits for this user
+        credits = []
+        async for credit in db.credits.find({"user_id": user_id}).sort("assigned_at", -1):
+            credits.append({
+                "id": str(credit["_id"]),
+                "user_id": credit["user_id"],
+                "company_name": user["company_name"],
+                "credit_type": credit["credit_type"],
+                "amount": credit["amount"],
+                "reason": credit["reason"],
+                "assigned_by": credit["assigned_by"],
+                "assigned_at": credit["assigned_at"],
+                "valid_until": credit.get("valid_until")
+            })
+        
+        companies.append({
+            "id": user_id,
+            "gst_number": user["gst_number"],
+            "email": user["email"],
+            "company_name": user["company_name"],
+            "industry_type": user["industry_type"],
+            "created_at": user["created_at"],
+            "total_reports": len(reports),
+            "avg_trust_score": round(avg_score, 1) if avg_score else None,
+            "credits": credits
+        })
+    
+    return companies
+
+@app.post("/admin/credits")
+async def assign_credit(credit: CreditAssignment, admin_email: str = "admin@gov.in"):
+    """Assign credits to a company."""
+    db = get_database()
+    
+    # Verify user exists
+    try:
+        user = await db.users.find_one({"_id": ObjectId(credit.user_id)})
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    credit_doc = {
+        "user_id": credit.user_id,
+        "credit_type": credit.credit_type,
+        "amount": credit.amount,
+        "reason": credit.reason,
+        "assigned_by": admin_email,
+        "assigned_at": datetime.utcnow(),
+        "valid_until": credit.valid_until
+    }
+    
+    result = await db.credits.insert_one(credit_doc)
+    
+    return {
+        "id": str(result.inserted_id),
+        "user_id": credit.user_id,
+        "company_name": user["company_name"],
+        "credit_type": credit.credit_type,
+        "amount": credit.amount,
+        "reason": credit.reason,
+        "assigned_by": admin_email,
+        "assigned_at": credit_doc["assigned_at"],
+        "valid_until": credit.valid_until
+    }
+
+@app.get("/admin/credits")
+async def get_all_credits():
+    """Get all assigned credits."""
+    db = get_database()
+    credits = []
+    
+    async for credit in db.credits.find().sort("assigned_at", -1):
+        # Get company name
+        try:
+            user = await db.users.find_one({"_id": ObjectId(credit["user_id"])})
+            company_name = user["company_name"] if user else "Unknown"
+        except Exception:
+            company_name = "Unknown"
+        
+        credits.append({
+            "id": str(credit["_id"]),
+            "user_id": credit["user_id"],
+            "company_name": company_name,
+            "credit_type": credit["credit_type"],
+            "amount": credit["amount"],
+            "reason": credit["reason"],
+            "assigned_by": credit["assigned_by"],
+            "assigned_at": credit["assigned_at"],
+            "valid_until": credit.get("valid_until")
+        })
+    
+    return credits
+
+@app.delete("/admin/credits/{credit_id}")
+async def revoke_credit(credit_id: str):
+    """Revoke/delete a credit assignment."""
+    db = get_database()
+    
+    try:
+        result = await db.credits.delete_one({"_id": ObjectId(credit_id)})
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid credit ID")
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Credit not found")
+    
+    return {"message": "Credit revoked successfully"}
+
+@app.get("/admin/stats")
+async def get_admin_stats():
+    """Get dashboard statistics for admin."""
+    db = get_database()
+    
+    # Count companies
+    total_companies = await db.users.count_documents({})
+    
+    # Count reports
+    total_reports = await db.reports.count_documents({})
+    
+    # Get reports by traffic light
+    red_count = 0
+    yellow_count = 0
+    green_count = 0
+    total_score = 0
+    score_count = 0
+    
+    async for report in db.reports.find():
+        if report.get("analysis") and report["analysis"].get("scores"):
+            scores = report["analysis"]["scores"]
+            light = scores.get("traffic_light", "").upper()
+            if light == "RED":
+                red_count += 1
+            elif light == "YELLOW":
+                yellow_count += 1
+            elif light == "GREEN":
+                green_count += 1
+            
+            if scores.get("final_trust_score"):
+                total_score += scores["final_trust_score"]
+                score_count += 1
+    
+    # Get total credits by type
+    credit_stats = {}
+    async for credit in db.credits.find():
+        ctype = credit["credit_type"]
+        if ctype not in credit_stats:
+            credit_stats[ctype] = 0
+        credit_stats[ctype] += credit["amount"]
+    
+    # Get industry distribution
+    industry_counts = {}
+    async for user in db.users.find():
+        industry = user.get("industry_type", "Other")
+        if industry not in industry_counts:
+            industry_counts[industry] = 0
+        industry_counts[industry] += 1
+    
+    return {
+        "total_companies": total_companies,
+        "total_reports": total_reports,
+        "avg_trust_score": round(total_score / score_count, 1) if score_count > 0 else None,
+        "traffic_light_distribution": {
+            "red": red_count,
+            "yellow": yellow_count,
+            "green": green_count
+        },
+        "credit_totals": credit_stats,
+        "industry_distribution": industry_counts
+    }

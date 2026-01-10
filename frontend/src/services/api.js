@@ -73,4 +73,29 @@ export async function getAllUsers() {
   return response.data;
 }
 
+export async function getAllCompanies() {
+  const response = await api.get('/admin/companies');
+  return response.data;
+}
+
+export async function getAdminStats() {
+  const response = await api.get('/admin/stats');
+  return response.data;
+}
+
+export async function assignCredit(creditData) {
+  const response = await api.post('/admin/credits', creditData);
+  return response.data;
+}
+
+export async function getAllCredits() {
+  const response = await api.get('/admin/credits');
+  return response.data;
+}
+
+export async function revokeCredit(creditId) {
+  const response = await api.delete(`/admin/credits/${creditId}`);
+  return response.data;
+}
+
 export default api;

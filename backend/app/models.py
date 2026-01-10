@@ -108,3 +108,33 @@ class ReportResponse(BaseModel):
     uploaded_at: datetime
     user_id: Optional[str] = None
     analysis: AnalysisResult
+
+# Credit Models
+class CreditAssignment(BaseModel):
+    user_id: str
+    credit_type: str  # CO2, renewable, waste, etc.
+    amount: float
+    reason: str
+    valid_until: Optional[datetime] = None
+
+class CreditResponse(BaseModel):
+    id: str
+    user_id: str
+    company_name: str
+    credit_type: str
+    amount: float
+    reason: str
+    assigned_by: str
+    assigned_at: datetime
+    valid_until: Optional[datetime] = None
+
+class CompanyWithCredits(BaseModel):
+    id: str
+    gst_number: str
+    email: str
+    company_name: str
+    industry_type: str
+    created_at: datetime
+    total_reports: int = 0
+    avg_trust_score: Optional[float] = None
+    credits: List[CreditResponse] = []
