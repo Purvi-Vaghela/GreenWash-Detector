@@ -1,16 +1,25 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from datetime import datetime
 from bson import ObjectId
-from typing import List
+from typing import List, Optional
 
 from .config import get_settings
 from .database import connect_db, close_db, get_database, get_gridfs
-from .services.pdf_service import extract_text_from_pdf, extract_company_name
+from .services.pdf_service import extract_text_from_pdf, extract_company_name, extract_pdf_preview
 from .services.news_service import search_news
 from .services.ai_service import analyze_with_ai
-from .models import AnalysisResult, ReportResponse
+from .services.auth_service import (
+    create_user, get_user_by_email, get_user_by_gst, 
+    authenticate_user, authenticate_admin, authenticate_admin_db,
+    create_admin, get_admin_by_email, ADMIN_REGISTRATION_CODE
+)
+from .models import (
+    AnalysisResult, ReportResponse, 
+    UserRegister, UserLogin, UserResponse, AdminLogin,
+    AdminRegister, AdminResponse
+)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -41,8 +50,149 @@ async def root():
 async def health():
     return {"status": "healthy"}
 
+# ============ AUTH ENDPOINTS ============
+
+@app.post("/auth/register", response_model=UserResponse)
+async def register_user(user: UserRegister):
+    """Register a new industry user."""
+    db = get_database()
+    
+    # Validate passwords match
+    if user.password != user.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+    
+    # Validate password length
+    if len(user.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    
+    # Check if email already exists
+    existing_email = await get_user_by_email(db, user.email)
+    if existing_email:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Check if GST already exists
+    existing_gst = await get_user_by_gst(db, user.gst_number)
+    if existing_gst:
+        raise HTTPException(status_code=400, detail="GST number already registered")
+    
+    # Create user
+    user_doc = await create_user(db, user.model_dump())
+    
+    return UserResponse(
+        id=str(user_doc["_id"]),
+        gst_number=user_doc["gst_number"],
+        email=user_doc["email"],
+        company_name=user_doc["company_name"],
+        industry_type=user_doc["industry_type"],
+        role=user_doc["role"],
+        created_at=user_doc["created_at"]
+    )
+
+@app.post("/auth/login")
+async def login_user(credentials: UserLogin):
+    """Login for industry users."""
+    db = get_database()
+    
+    user = await authenticate_user(db, credentials.email, credentials.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    return {
+        "id": str(user["_id"]),
+        "email": user["email"],
+        "company_name": user["company_name"],
+        "industry_type": user["industry_type"],
+        "gst_number": user["gst_number"],
+        "role": "client",
+        "name": user["company_name"]
+    }
+
+@app.post("/auth/admin/login")
+async def login_admin(credentials: AdminLogin):
+    """Login for government admin users."""
+    db = get_database()
+    
+    # First check database
+    admin = await authenticate_admin_db(db, credentials.email, credentials.password)
+    if admin:
+        return {
+            "id": str(admin["_id"]),
+            "email": admin["email"],
+            "name": admin["name"],
+            "department": admin["department"],
+            "role": "admin"
+        }
+    
+    # Fallback to hardcoded credentials
+    admin = authenticate_admin(credentials.email, credentials.password)
+    if not admin:
+        raise HTTPException(status_code=401, detail="Invalid admin credentials")
+    
+    return admin
+
+@app.post("/auth/admin/register", response_model=AdminResponse)
+async def register_admin(admin: AdminRegister):
+    """Register a new government admin user."""
+    db = get_database()
+    
+    # Verify admin registration code
+    if admin.admin_code != ADMIN_REGISTRATION_CODE:
+        raise HTTPException(status_code=403, detail="Invalid admin registration code")
+    
+    # Validate passwords match
+    if admin.password != admin.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+    
+    # Validate password length
+    if len(admin.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    
+    # Check if email already exists
+    existing_admin = await get_admin_by_email(db, admin.email)
+    if existing_admin:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Create admin
+    admin_doc = await create_admin(db, admin.model_dump())
+    
+    return AdminResponse(
+        id=str(admin_doc["_id"]),
+        email=admin_doc["email"],
+        name=admin_doc["name"],
+        department=admin_doc["department"],
+        role=admin_doc["role"],
+        created_at=admin_doc["created_at"]
+    )
+
+# ============ REPORT ENDPOINTS ============
+
+@app.post("/preview")
+async def preview_pdf(file: UploadFile = File(...)):
+    """
+    Extract and preview data from uploaded PDF before full analysis.
+    """
+    # Validate file type
+    if not file.filename.lower().endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Only PDF files are accepted")
+    
+    # Read file
+    try:
+        file_bytes = await file.read()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to read file: {e}")
+    
+    # Extract preview data
+    try:
+        preview_data = extract_pdf_preview(file_bytes)
+        preview_data["filename"] = file.filename
+        preview_data["file_size_mb"] = round(len(file_bytes) / (1024 * 1024), 2)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to extract PDF data: {e}")
+    
+    return preview_data
+
 @app.post("/analyze", response_model=ReportResponse)
-async def analyze_report(file: UploadFile = File(...)):
+async def analyze_report(file: UploadFile = File(...), user_id: Optional[str] = None):
     """
     Analyze a corporate sustainability report PDF for greenwashing.
     Stores the file in MongoDB GridFS and saves analysis results.
@@ -105,6 +255,7 @@ async def analyze_report(file: UploadFile = File(...)):
         "filename": file.filename,
         "file_id": str(file_id),
         "uploaded_at": datetime.utcnow(),
+        "user_id": user_id,
         "analysis": analysis.model_dump()
     }
     
@@ -114,20 +265,24 @@ async def analyze_report(file: UploadFile = File(...)):
         id=str(result.inserted_id),
         filename=file.filename,
         uploaded_at=report_doc["uploaded_at"],
+        user_id=user_id,
         analysis=analysis
     )
 
 @app.get("/reports", response_model=List[ReportResponse])
-async def get_reports():
-    """Get all analyzed reports."""
+async def get_reports(user_id: Optional[str] = None):
+    """Get all analyzed reports, optionally filtered by user."""
     db = get_database()
     reports = []
     
-    async for doc in db.reports.find().sort("uploaded_at", -1):
+    query = {"user_id": user_id} if user_id else {}
+    
+    async for doc in db.reports.find(query).sort("uploaded_at", -1):
         reports.append(ReportResponse(
             id=str(doc["_id"]),
             filename=doc["filename"],
             uploaded_at=doc["uploaded_at"],
+            user_id=doc.get("user_id"),
             analysis=AnalysisResult(**doc["analysis"])
         ))
     
@@ -150,6 +305,7 @@ async def get_report(report_id: str):
         id=str(doc["_id"]),
         filename=doc["filename"],
         uploaded_at=doc["uploaded_at"],
+        user_id=doc.get("user_id"),
         analysis=AnalysisResult(**doc["analysis"])
     )
 
@@ -177,3 +333,23 @@ async def delete_report(report_id: str):
     await db.reports.delete_one({"_id": ObjectId(report_id)})
     
     return {"message": "Report deleted successfully"}
+
+# ============ USER MANAGEMENT (Admin only) ============
+
+@app.get("/admin/users")
+async def get_all_users():
+    """Get all registered users (admin only)."""
+    db = get_database()
+    users = []
+    
+    async for doc in db.users.find().sort("created_at", -1):
+        users.append({
+            "id": str(doc["_id"]),
+            "gst_number": doc["gst_number"],
+            "email": doc["email"],
+            "company_name": doc["company_name"],
+            "industry_type": doc["industry_type"],
+            "created_at": doc["created_at"]
+        })
+    
+    return users

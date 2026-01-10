@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
@@ -16,6 +16,49 @@ class PyObjectId(str):
             return v
         raise ValueError("Invalid ObjectId")
 
+# User Models
+class UserRegister(BaseModel):
+    gst_number: str
+    email: EmailStr
+    company_name: str
+    industry_type: str
+    password: str
+    confirm_password: str
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserResponse(BaseModel):
+    id: str
+    gst_number: str
+    email: str
+    company_name: str
+    industry_type: str
+    role: str = "client"
+    created_at: datetime
+
+class AdminLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class AdminRegister(BaseModel):
+    email: EmailStr
+    name: str
+    department: str
+    password: str
+    confirm_password: str
+    admin_code: str  # Secret code to verify govt official
+
+class AdminResponse(BaseModel):
+    id: str
+    email: str
+    name: str
+    department: str
+    role: str = "admin"
+    created_at: datetime
+
+# ESG Analysis Models
 class CompanyInfo(BaseModel):
     name: str
     industry_type: str
@@ -52,6 +95,7 @@ class ReportDocument(BaseModel):
     file_id: str  # GridFS file ID
     uploaded_at: datetime
     uploaded_by: Optional[str] = None
+    user_id: Optional[str] = None
     analysis: Optional[AnalysisResult] = None
     
     class Config:
@@ -62,4 +106,5 @@ class ReportResponse(BaseModel):
     id: str
     filename: str
     uploaded_at: datetime
+    user_id: Optional[str] = None
     analysis: AnalysisResult

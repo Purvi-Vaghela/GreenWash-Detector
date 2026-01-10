@@ -1,28 +1,48 @@
 import { useState } from 'react';
 import Navbar from '../components/Navbar';
 import FileUpload from '../components/FileUpload';
+import PdfPreview from '../components/PdfPreview';
 import TrustScoreGauge from '../components/TrustScoreGauge';
 import ScoreBreakdown from '../components/ScoreBreakdown';
 import AuditMetrics from '../components/AuditMetrics';
 import ReportHistory from '../components/ReportHistory';
-import { analyzeReport } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import { analyzeReport, previewPdf } from '../services/api';
 import { Lightbulb, Building2, Factory } from 'lucide-react';
 
 export default function ClientDashboard() {
+  const { user } = useAuth();
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+
+  const handlePreview = async () => {
+    if (!file) return;
+    setPreviewLoading(true);
+    setError(null);
+    try {
+      const data = await previewPdf(file);
+      setPreview(data);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to extract PDF data.');
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
 
   const handleAnalyze = async () => {
     if (!file) return;
     setLoading(true);
     setError(null);
     try {
-      const data = await analyzeReport(file);
+      const data = await analyzeReport(file, user?.id);
       setResult(data.analysis);
+      setPreview(null); // Clear preview after analysis
     } catch (err) {
-      setError(err.message || 'Analysis failed. Please try again.');
+      setError(err.response?.data?.detail || 'Analysis failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -31,6 +51,13 @@ export default function ClientDashboard() {
   const handleSelectReport = (report) => {
     setResult(report.analysis);
     setFile(null);
+    setPreview(null);
+  };
+
+  const handleFileChange = (newFile) => {
+    setFile(newFile);
+    setPreview(null);
+    setResult(null);
   };
 
   return (
@@ -53,13 +80,23 @@ export default function ClientDashboard() {
           <div className="lg:col-span-1 space-y-6">
             <FileUpload 
               file={file} 
-              setFile={setFile} 
+              setFile={handleFileChange} 
               onAnalyze={handleAnalyze}
+              onPreview={handlePreview}
               loading={loading}
+              previewLoading={previewLoading}
             />
-            <ReportHistory onSelect={handleSelectReport} isAdmin={false} />
+            <ReportHistory onSelect={handleSelectReport} isAdmin={false} userId={user?.id} />
           </div>
 
+          {/* Show Preview Data */}
+          {preview && !result && (
+            <div className="lg:col-span-2">
+              <PdfPreview preview={preview} />
+            </div>
+          )}
+
+          {/* Show Analysis Results */}
           {result && (
             <>
               <div className="lg:col-span-2">
@@ -103,14 +140,14 @@ export default function ClientDashboard() {
             </>
           )}
 
-          {!result && !loading && (
+          {!result && !preview && !loading && !previewLoading && (
             <div className="lg:col-span-2 flex items-center justify-center">
               <div className="text-center py-16">
                 <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Building2 className="w-12 h-12 text-gray-300" />
                 </div>
                 <h3 className="text-lg font-medium text-gray-500">No Report Analyzed Yet</h3>
-                <p className="text-gray-400 mt-1">Upload a PDF to get started</p>
+                <p className="text-gray-400 mt-1">Upload a PDF to preview data or run full analysis</p>
               </div>
             </div>
           )}

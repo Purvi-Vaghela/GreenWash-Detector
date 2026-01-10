@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { getReports, deleteReport } from '../services/api';
 import { FileText, Trash2, Eye, Clock } from 'lucide-react';
 
-export default function ReportHistory({ onSelect, isAdmin }) {
+export default function ReportHistory({ onSelect, isAdmin, userId }) {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchReports = async () => {
     try {
-      const data = await getReports();
+      const data = await getReports(isAdmin ? null : userId);
       setReports(data);
     } catch (err) {
       console.error('Failed to fetch reports:', err);
@@ -19,7 +19,7 @@ export default function ReportHistory({ onSelect, isAdmin }) {
 
   useEffect(() => {
     fetchReports();
-  }, []);
+  }, [userId]);
 
   const handleDelete = async (id, e) => {
     e.stopPropagation();

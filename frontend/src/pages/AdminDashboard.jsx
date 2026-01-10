@@ -1,19 +1,38 @@
 import { useState } from 'react';
 import Navbar from '../components/Navbar';
 import FileUpload from '../components/FileUpload';
+import PdfPreview from '../components/PdfPreview';
 import TrustScoreGauge from '../components/TrustScoreGauge';
 import ScoreBreakdown from '../components/ScoreBreakdown';
 import AuditMetrics from '../components/AuditMetrics';
 import ContradictionsList from '../components/ContradictionsList';
 import ReportHistory from '../components/ReportHistory';
-import { analyzeReport } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import { analyzeReport, previewPdf } from '../services/api';
 import { Shield, AlertTriangle, Factory, FileText } from 'lucide-react';
 
 export default function AdminDashboard() {
+  const { user } = useAuth();
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+
+  const handlePreview = async () => {
+    if (!file) return;
+    setPreviewLoading(true);
+    setError(null);
+    try {
+      const data = await previewPdf(file);
+      setPreview(data);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to extract PDF data.');
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
 
   const handleAnalyze = async () => {
     if (!file) return;
@@ -22,8 +41,9 @@ export default function AdminDashboard() {
     try {
       const data = await analyzeReport(file);
       setResult(data.analysis);
+      setPreview(null);
     } catch (err) {
-      setError(err.message || 'Analysis failed. Please try again.');
+      setError(err.response?.data?.detail || 'Analysis failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -32,6 +52,13 @@ export default function AdminDashboard() {
   const handleSelectReport = (report) => {
     setResult(report.analysis);
     setFile(null);
+    setPreview(null);
+  };
+
+  const handleFileChange = (newFile) => {
+    setFile(newFile);
+    setPreview(null);
+    setResult(null);
   };
 
   return (
@@ -59,13 +86,23 @@ export default function AdminDashboard() {
           <div className="lg:col-span-1 space-y-6">
             <FileUpload 
               file={file} 
-              setFile={setFile} 
+              setFile={handleFileChange} 
               onAnalyze={handleAnalyze}
+              onPreview={handlePreview}
               loading={loading}
+              previewLoading={previewLoading}
             />
-            <ReportHistory onSelect={handleSelectReport} isAdmin={true} />
+            <ReportHistory onSelect={handleSelectReport} isAdmin={true} userId={null} />
           </div>
 
+          {/* Show Preview Data */}
+          {preview && !result && (
+            <div className="lg:col-span-2">
+              <PdfPreview preview={preview} />
+            </div>
+          )}
+
+          {/* Show Analysis Results */}
           {result && (
             <>
               <div className="lg:col-span-2">
@@ -126,7 +163,7 @@ export default function AdminDashboard() {
             </>
           )}
 
-          {!result && !loading && (
+          {!result && !preview && !loading && !previewLoading && (
             <div className="lg:col-span-2 flex items-center justify-center">
               <div className="text-center py-16">
                 <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">

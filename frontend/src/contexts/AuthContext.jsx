@@ -14,12 +14,9 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
-  const login = (email, password, role) => {
-    // Demo auth - in production, call your backend
-    const userData = { email, role, name: role === 'admin' ? 'Govt Official' : 'Industry User' };
+  const login = (userData) => {
     localStorage.setItem('greenwash_user', JSON.stringify(userData));
     setUser(userData);
-    return true;
   };
 
   const logout = () => {
