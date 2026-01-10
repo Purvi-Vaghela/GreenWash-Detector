@@ -374,9 +374,21 @@ async def get_all_companies_with_data():
         
         avg_score = total_score / len(reports) if reports else None
         
-        # Get credits for this user
+        # Get credits for this user and calculate balances
         credits = []
+        credit_balances = {}
         async for credit in db.credits.find({"user_id": user_id}).sort("assigned_at", -1):
+            ctype = credit["credit_type"]
+            trans_type = credit.get("transaction_type", "credit")
+            
+            if ctype not in credit_balances:
+                credit_balances[ctype] = 0
+            
+            if trans_type == "credit":
+                credit_balances[ctype] += credit["amount"]
+            else:
+                credit_balances[ctype] -= credit["amount"]
+            
             credits.append({
                 "id": str(credit["_id"]),
                 "user_id": credit["user_id"],
@@ -384,6 +396,7 @@ async def get_all_companies_with_data():
                 "credit_type": credit["credit_type"],
                 "amount": credit["amount"],
                 "reason": credit["reason"],
+                "transaction_type": trans_type,
                 "assigned_by": credit["assigned_by"],
                 "assigned_at": credit["assigned_at"],
                 "valid_until": credit.get("valid_until")
@@ -398,14 +411,15 @@ async def get_all_companies_with_data():
             "created_at": user["created_at"],
             "total_reports": len(reports),
             "avg_trust_score": round(avg_score, 1) if avg_score else None,
-            "credits": credits
+            "credits": credits,
+            "credit_balances": credit_balances
         })
     
     return companies
 
 @app.post("/admin/credits")
 async def assign_credit(credit: CreditAssignment, admin_email: str = "admin@gov.in"):
-    """Assign credits to a company."""
+    """Assign or deduct credits from a company."""
     db = get_database()
     
     # Verify user exists
@@ -417,11 +431,27 @@ async def assign_credit(credit: CreditAssignment, admin_email: str = "admin@gov.
     if not user:
         raise HTTPException(status_code=404, detail="Company not found")
     
+    # For debit, check if user has enough credits of that type
+    if credit.transaction_type == "debit":
+        total_credits = 0
+        async for c in db.credits.find({"user_id": credit.user_id, "credit_type": credit.credit_type}):
+            if c.get("transaction_type", "credit") == "credit":
+                total_credits += c["amount"]
+            else:
+                total_credits -= c["amount"]
+        
+        if total_credits < credit.amount:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Insufficient {credit.credit_type} credits. Available: {total_credits}"
+            )
+    
     credit_doc = {
         "user_id": credit.user_id,
         "credit_type": credit.credit_type,
         "amount": credit.amount,
         "reason": credit.reason,
+        "transaction_type": credit.transaction_type,
         "assigned_by": admin_email,
         "assigned_at": datetime.utcnow(),
         "valid_until": credit.valid_until
@@ -436,6 +466,7 @@ async def assign_credit(credit: CreditAssignment, admin_email: str = "admin@gov.
         "credit_type": credit.credit_type,
         "amount": credit.amount,
         "reason": credit.reason,
+        "transaction_type": credit.transaction_type,
         "assigned_by": admin_email,
         "assigned_at": credit_doc["assigned_at"],
         "valid_until": credit.valid_until
@@ -483,6 +514,51 @@ async def revoke_credit(credit_id: str):
         raise HTTPException(status_code=404, detail="Credit not found")
     
     return {"message": "Credit revoked successfully"}
+
+@app.get("/users/{user_id}/credits")
+async def get_user_credits(user_id: str):
+    """Get credits assigned to a specific user with balances."""
+    db = get_database()
+    
+    # Verify user exists
+    try:
+        user = await db.users.find_one({"_id": ObjectId(user_id)})
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    credits = []
+    balances = {}
+    
+    async for credit in db.credits.find({"user_id": user_id}).sort("assigned_at", -1):
+        ctype = credit["credit_type"]
+        trans_type = credit.get("transaction_type", "credit")
+        
+        if ctype not in balances:
+            balances[ctype] = 0
+        
+        if trans_type == "credit":
+            balances[ctype] += credit["amount"]
+        else:
+            balances[ctype] -= credit["amount"]
+        
+        credits.append({
+            "id": str(credit["_id"]),
+            "credit_type": credit["credit_type"],
+            "amount": credit["amount"],
+            "reason": credit["reason"],
+            "transaction_type": trans_type,
+            "assigned_by": credit["assigned_by"],
+            "assigned_at": credit["assigned_at"],
+            "valid_until": credit.get("valid_until")
+        })
+    
+    return {
+        "transactions": credits,
+        "balances": balances
+    }
 
 @app.get("/admin/stats")
 async def get_admin_stats():

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Award, Leaf, Droplets, Recycle, Zap } from 'lucide-react';
+import { X, Award, Leaf, Droplets, Recycle, Zap, Plus, Minus } from 'lucide-react';
 
 const CREDIT_TYPES = [
   { id: 'CO2', label: 'CO2 Credits', icon: Leaf, color: 'emerald' },
@@ -9,6 +9,7 @@ const CREDIT_TYPES = [
 ];
 
 export default function CreditAssignmentModal({ company, onClose, onAssign, loading }) {
+  const [transactionType, setTransactionType] = useState('credit');
   const [creditType, setCreditType] = useState('CO2');
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
@@ -23,9 +24,12 @@ export default function CreditAssignmentModal({ company, onClose, onAssign, load
       credit_type: creditType,
       amount: parseFloat(amount),
       reason,
+      transaction_type: transactionType,
       valid_until: validUntil ? new Date(validUntil).toISOString() : null
     });
   };
+
+  const currentBalance = company.credit_balances?.[creditType] || 0;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -33,7 +37,7 @@ export default function CreditAssignmentModal({ company, onClose, onAssign, load
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <Award className="w-5 h-5 text-emerald-600" />
-            <h3 className="text-lg font-semibold">Assign Credits</h3>
+            <h3 className="text-lg font-semibold">Manage Credits</h3>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <X className="w-5 h-5 text-gray-500" />
@@ -42,9 +46,40 @@ export default function CreditAssignmentModal({ company, onClose, onAssign, load
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="bg-blue-50 rounded-lg p-3">
-            <p className="text-sm text-blue-600">Assigning to:</p>
+            <p className="text-sm text-blue-600">Company:</p>
             <p className="font-semibold text-blue-900">{company.company_name}</p>
             <p className="text-xs text-blue-600">{company.gst_number}</p>
+          </div>
+
+          {/* Transaction Type Toggle */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Transaction Type</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setTransactionType('credit')}
+                className={`flex items-center justify-center gap-2 p-3 rounded-lg border-2 transition-all ${
+                  transactionType === 'credit'
+                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                    : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                }`}
+              >
+                <Plus className="w-5 h-5" />
+                <span className="font-medium">Add Credits</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTransactionType('debit')}
+                className={`flex items-center justify-center gap-2 p-3 rounded-lg border-2 transition-all ${
+                  transactionType === 'debit'
+                    ? 'border-red-500 bg-red-50 text-red-700'
+                    : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                }`}
+              >
+                <Minus className="w-5 h-5" />
+                <span className="font-medium">Deduct Credits</span>
+              </button>
+            </div>
           </div>
 
           <div>
@@ -72,6 +107,11 @@ export default function CreditAssignmentModal({ company, onClose, onAssign, load
                 );
               })}
             </div>
+            {transactionType === 'debit' && (
+              <p className="text-xs text-gray-500 mt-2">
+                Current {creditType} balance: <span className="font-semibold">{currentBalance}</span>
+              </p>
+            )}
           </div>
 
           <div>
@@ -80,8 +120,9 @@ export default function CreditAssignmentModal({ company, onClose, onAssign, load
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder="Enter credit amount"
+              placeholder={`Enter amount to ${transactionType === 'credit' ? 'add' : 'deduct'}`}
               min="0"
+              max={transactionType === 'debit' ? currentBalance : undefined}
               step="0.01"
               required
               className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
@@ -93,22 +134,27 @@ export default function CreditAssignmentModal({ company, onClose, onAssign, load
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Reason for credit assignment..."
+              placeholder={transactionType === 'credit' 
+                ? "Reason for credit assignment (e.g., Good ESG performance, Carbon offset project)..."
+                : "Reason for deduction (e.g., Violation penalty, Expired credits, Audit adjustment)..."
+              }
               required
               rows={3}
               className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Valid Until (Optional)</label>
-            <input
-              type="date"
-              value={validUntil}
-              onChange={(e) => setValidUntil(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-            />
-          </div>
+          {transactionType === 'credit' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Valid Until (Optional)</label>
+              <input
+                type="date"
+                value={validUntil}
+                onChange={(e) => setValidUntil(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
+            </div>
+          )}
 
           <div className="flex gap-3 pt-4">
             <button
@@ -120,10 +166,14 @@ export default function CreditAssignmentModal({ company, onClose, onAssign, load
             </button>
             <button
               type="submit"
-              disabled={loading || !amount || !reason}
-              className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading || !amount || !reason || (transactionType === 'debit' && parseFloat(amount) > currentBalance)}
+              className={`flex-1 px-4 py-2 text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
+                transactionType === 'credit'
+                  ? 'bg-emerald-600 hover:bg-emerald-700'
+                  : 'bg-red-600 hover:bg-red-700'
+              }`}
             >
-              {loading ? 'Assigning...' : 'Assign Credit'}
+              {loading ? 'Processing...' : transactionType === 'credit' ? 'Add Credits' : 'Deduct Credits'}
             </button>
           </div>
         </form>

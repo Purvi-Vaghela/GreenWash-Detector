@@ -98,4 +98,9 @@ export async function revokeCredit(creditId) {
   return response.data;
 }
 
+export async function getUserCredits(userId) {
+  const response = await api.get(`/users/${userId}/credits`);
+  return response.data;
+}
+
 export default api;

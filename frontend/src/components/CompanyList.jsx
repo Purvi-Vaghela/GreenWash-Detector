@@ -118,12 +118,14 @@ export default function CompanyList({ companies, onAssignCredit, onViewReports }
 
                 {company.credits?.length > 0 && (
                   <div className="mt-4">
-                    <p className="text-sm text-gray-500 mb-2">Active Credits:</p>
+                    <p className="text-sm text-gray-500 mb-2">Credit Balances:</p>
                     <div className="flex flex-wrap gap-2">
-                      {company.credits.map(credit => (
-                        <span key={credit.id} className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs">
+                      {Object.entries(company.credit_balances || {}).map(([type, balance]) => (
+                        <span key={type} className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
+                          balance > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                        }`}>
                           <Award className="w-3 h-3" />
-                          {credit.amount} {credit.credit_type}
+                          {balance} {type}
                         </span>
                       ))}
                     </div>

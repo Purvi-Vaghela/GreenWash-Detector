@@ -10,6 +10,7 @@ import ReportHistory from '../components/ReportHistory';
 import CompanyList from '../components/CompanyList';
 import CreditAssignmentModal from '../components/CreditAssignmentModal';
 import AdminStatsCharts from '../components/AdminStatsCharts';
+import UploadHistory from '../components/UploadHistory';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   analyzeReport, previewPdf, getAllCompanies, getAdminStats, 
@@ -170,7 +171,44 @@ export default function AdminDashboard() {
                 <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
               </div>
             ) : (
-              <AdminStatsCharts stats={stats} />
+              <>
+                <AdminStatsCharts stats={stats} />
+                <div className="grid lg:grid-cols-2 gap-6">
+                  <UploadHistory onSelectReport={handleSelectReport} />
+                  <div className="bg-white rounded-2xl shadow-lg p-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Award className="w-5 h-5 text-emerald-600" />
+                      <h3 className="font-semibold text-gray-900">Recent Credits Assigned</h3>
+                    </div>
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {companies.flatMap(c => c.credits || []).length > 0 ? (
+                        companies.flatMap(c => c.credits || [])
+                          .sort((a, b) => new Date(b.assigned_at) - new Date(a.assigned_at))
+                          .slice(0, 10)
+                          .map(credit => (
+                            <div key={credit.id} className="p-3 border border-gray-100 rounded-xl">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-medium text-gray-900">{credit.company_name}</p>
+                                  <p className="text-xs text-gray-500">{credit.reason}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-emerald-600 font-bold">+{credit.amount}</p>
+                                  <p className="text-xs text-gray-400">{credit.credit_type}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                      ) : (
+                        <div className="text-center py-8 text-gray-400">
+                          <Award className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm">No credits assigned yet</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         )}

@@ -115,6 +115,7 @@ class CreditAssignment(BaseModel):
     credit_type: str  # CO2, renewable, waste, etc.
     amount: float
     reason: str
+    transaction_type: str = "credit"  # credit (add) or debit (deduct)
     valid_until: Optional[datetime] = None
 
 class CreditResponse(BaseModel):
@@ -124,6 +125,7 @@ class CreditResponse(BaseModel):
     credit_type: str
     amount: float
     reason: str
+    transaction_type: str = "credit"
     assigned_by: str
     assigned_at: datetime
     valid_until: Optional[datetime] = None
