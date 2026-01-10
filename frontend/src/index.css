@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+:root {
+  --green-primary: #10b981;
+  --yellow-primary: #f59e0b;
+  --red-primary: #ef4444;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: #f8fafc;
+}
+
+.traffic-light-green { background: linear-gradient(135deg, #10b981, #059669); }
+.traffic-light-yellow { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.traffic-light-red { background: linear-gradient(135deg, #ef4444, #dc2626); }
+
+.score-ring {
+  background: conic-gradient(
+    var(--score-color) calc(var(--score) * 3.6deg),
+    #e2e8f0 0deg
+  );
+}
