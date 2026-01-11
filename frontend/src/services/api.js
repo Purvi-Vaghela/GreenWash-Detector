@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://8000-cs-84cdefbd-a7a0-4db3-a02f-127a2b856d55.cs-asia-southeast1-bool.cloudshell.dev/';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://136.113.183.167/docs';
 
 const api = axios.create({
   baseURL: API_BASE,
