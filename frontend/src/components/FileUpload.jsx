@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, X } from 'lucide-react';
+import { Upload, FileText, X, Eye } from 'lucide-react';
 
-export default function FileUpload({ file, setFile, onAnalyze, loading }) {
+export default function FileUpload({ file, setFile, onAnalyze, onPreview, loading, previewLoading }) {
   const onDrop = useCallback((acceptedFiles) => {
     if (acceptedFiles.length > 0) {
       setFile(acceptedFiles[0]);
@@ -51,20 +51,39 @@ export default function FileUpload({ file, setFile, onAnalyze, loading }) {
             </button>
           </div>
           
-          <button
-            onClick={onAnalyze}
-            disabled={loading}
-            className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Analyzing Report...
-              </>
-            ) : (
-              'Analyze for Greenwashing'
-            )}
-          </button>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={onPreview}
+              disabled={previewLoading || loading}
+              className="py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {previewLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
+                  Extracting...
+                </>
+              ) : (
+                <>
+                  <Eye className="w-4 h-4" />
+                  Preview Data
+                </>
+              )}
+            </button>
+            <button
+              onClick={onAnalyze}
+              disabled={loading || previewLoading}
+              className="py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Analyzing...
+                </>
+              ) : (
+                'Analyze Report'
+              )}
+            </button>
+          </div>
         </div>
       )}
     </div>

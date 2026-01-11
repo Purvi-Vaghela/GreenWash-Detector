@@ -1,8 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
+import Register from './pages/Register';
+import AdminRegister from './pages/AdminRegister';
 import ClientDashboard from './pages/ClientDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import About from './pages/About';
+import CO2Report from './pages/CO2Report';
 
 function ProtectedRoute({ children, requiredRole }) {
   const { user, loading } = useAuth();
@@ -32,6 +36,8 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} /> : <Login />} />
+      <Route path="/register" element={user ? <Navigate to="/dashboard" /> : <Register />} />
+      <Route path="/admin/register" element={user ? <Navigate to="/admin" /> : <AdminRegister />} />
       <Route path="/dashboard" element={
         <ProtectedRoute requiredRole="client">
           <ClientDashboard />
@@ -42,6 +48,8 @@ function AppRoutes() {
           <AdminDashboard />
         </ProtectedRoute>
       } />
+      <Route path="/about" element={<About />} />
+      <Route path="/co2-report" element={<CO2Report />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
