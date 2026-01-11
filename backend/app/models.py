@@ -82,10 +82,25 @@ class AuditDetails(BaseModel):
     vague_language_count: int
     hard_metrics_found: int
 
+class CO2Recommendation(BaseModel):
+    action: str
+    impact: str
+    priority: str  # HIGH | MEDIUM | LOW
+    timeline: str
+    cost_benefit: str
+
+class CO2Analysis(BaseModel):
+    current_emissions: str
+    reduction_potential: str
+    recommendations: List[CO2Recommendation]
+    industry_benchmarks: str
+    certifications_to_pursue: List[str]
+
 class AnalysisResult(BaseModel):
     company_info: CompanyInfo
     scores: Scores
     audit_details: AuditDetails
+    co2_analysis: Optional[CO2Analysis] = None
     admin_brief: str
     client_feedback: str
 

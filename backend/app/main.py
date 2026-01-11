@@ -597,9 +597,13 @@ async def get_admin_stats():
     credit_stats = {}
     async for credit in db.credits.find():
         ctype = credit["credit_type"]
+        trans_type = credit.get("transaction_type", "credit")
         if ctype not in credit_stats:
             credit_stats[ctype] = 0
-        credit_stats[ctype] += credit["amount"]
+        if trans_type == "credit":
+            credit_stats[ctype] += credit["amount"]
+        else:
+            credit_stats[ctype] -= credit["amount"]
     
     # Get industry distribution
     industry_counts = {}
@@ -620,4 +624,88 @@ async def get_admin_stats():
         },
         "credit_totals": credit_stats,
         "industry_distribution": industry_counts
+    }
+
+@app.get("/public/stats")
+async def get_public_stats():
+    """Get public statistics visible to all users."""
+    db = get_database()
+    
+    # Count companies
+    total_companies = await db.users.count_documents({})
+    
+    # Count reports
+    total_reports = await db.reports.count_documents({})
+    
+    # Calculate average scores
+    total_score = 0
+    total_specificity = 0
+    total_consistency = 0
+    total_verification = 0
+    score_count = 0
+    red_count = 0
+    yellow_count = 0
+    green_count = 0
+    
+    async for report in db.reports.find():
+        if report.get("analysis") and report["analysis"].get("scores"):
+            scores = report["analysis"]["scores"]
+            if scores.get("final_trust_score"):
+                total_score += scores["final_trust_score"]
+                total_specificity += scores.get("specificity", 0)
+                total_consistency += scores.get("consistency", 0)
+                total_verification += scores.get("verification", 0)
+                score_count += 1
+            
+            light = scores.get("traffic_light", "").upper()
+            if light == "RED":
+                red_count += 1
+            elif light == "YELLOW":
+                yellow_count += 1
+            elif light == "GREEN":
+                green_count += 1
+    
+    # Get industry averages
+    industry_scores = {}
+    async for user in db.users.find():
+        user_id = str(user["_id"])
+        industry = user.get("industry_type", "Other")
+        
+        if industry not in industry_scores:
+            industry_scores[industry] = {"total": 0, "count": 0}
+        
+        async for report in db.reports.find({"user_id": user_id}):
+            if report.get("analysis") and report["analysis"].get("scores"):
+                score = report["analysis"]["scores"].get("final_trust_score", 0)
+                if score:
+                    industry_scores[industry]["total"] += score
+                    industry_scores[industry]["count"] += 1
+    
+    industry_averages = {}
+    for industry, data in industry_scores.items():
+        if data["count"] > 0:
+            industry_averages[industry] = round(data["total"] / data["count"], 1)
+    
+    # Get total credits distributed
+    total_credits = 0
+    async for credit in db.credits.find():
+        if credit.get("transaction_type", "credit") == "credit":
+            total_credits += credit["amount"]
+        else:
+            total_credits -= credit["amount"]
+    
+    return {
+        "total_companies": total_companies,
+        "total_reports": total_reports,
+        "platform_avg_trust_score": round(total_score / score_count, 1) if score_count > 0 else None,
+        "avg_specificity": round(total_specificity / score_count, 1) if score_count > 0 else None,
+        "avg_consistency": round(total_consistency / score_count, 1) if score_count > 0 else None,
+        "avg_verification": round(total_verification / score_count, 1) if score_count > 0 else None,
+        "risk_distribution": {
+            "green": green_count,
+            "yellow": yellow_count,
+            "red": red_count
+        },
+        "industry_averages": industry_averages,
+        "total_credits_distributed": round(total_credits, 1)
     }

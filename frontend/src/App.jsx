@@ -6,6 +6,7 @@ import AdminRegister from './pages/AdminRegister';
 import ClientDashboard from './pages/ClientDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import About from './pages/About';
+import CO2Report from './pages/CO2Report';
 
 function ProtectedRoute({ children, requiredRole }) {
   const { user, loading } = useAuth();
@@ -48,6 +49,7 @@ function AppRoutes() {
         </ProtectedRoute>
       } />
       <Route path="/about" element={<About />} />
+      <Route path="/co2-report" element={<CO2Report />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );

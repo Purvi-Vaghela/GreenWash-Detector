@@ -7,6 +7,8 @@ import ScoreBreakdown from '../components/ScoreBreakdown';
 import AuditMetrics from '../components/AuditMetrics';
 import UserCredits from '../components/UserCredits';
 import UserReportsList from '../components/UserReportsList';
+import CO2Recommendations from '../components/CO2Recommendations';
+import PlatformStats from '../components/PlatformStats';
 import { useAuth } from '../contexts/AuthContext';
 import { analyzeReport, previewPdf } from '../services/api';
 import { Lightbulb, Factory, Upload, BarChart3, X } from 'lucide-react';
@@ -102,9 +104,10 @@ export default function ClientDashboard() {
         {/* Main Content */}
         {!result && !showUpload && (
           <div className="grid lg:grid-cols-3 gap-6">
-            {/* Credits Card */}
-            <div className="lg:col-span-1">
+            {/* Left Column - Credits & Platform Stats */}
+            <div className="lg:col-span-1 space-y-6">
               <UserCredits userId={user?.id} />
+              <PlatformStats />
             </div>
 
             {/* Reports List */}
@@ -208,6 +211,13 @@ export default function ClientDashboard() {
                   <p className="text-gray-700 leading-relaxed">{result.client_feedback}</p>
                 </div>
               </div>
+
+              {/* CO2 Recommendations */}
+              {result.co2_analysis && (
+                <div className="lg:col-span-3">
+                  <CO2Recommendations co2Analysis={result.co2_analysis} />
+                </div>
+              )}
             </div>
           </div>
         )}

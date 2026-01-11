@@ -70,7 +70,14 @@ Calculate final_trust_score using the formula, then classify:
 - YELLOW: 40 ≤ final_trust_score < 75 (Medium Risk - Needs Investigation)
 - GREEN: final_trust_score ≥ 75 (Low Risk - Appears Transparent)
 
-## 4. Output Requirements
+## 4. CO2 Reduction Recommendations
+Based on the industry type and current practices, provide specific CO2 reduction recommendations:
+- Identify current CO2 emission sources from the report
+- Calculate potential reduction percentages
+- Suggest specific technologies and practices
+- Estimate cost savings and environmental impact
+
+## 5. Output Requirements
 
 ### Admin Brief (Confidential)
 Write a 2-3 sentence summary for government officials covering:
@@ -84,7 +91,7 @@ Write 2-3 sentences of actionable feedback:
 - How to increase transparency
 - Recommended certifications to pursue
 
-## 5. Required JSON Output Format
+## 6. Required JSON Output Format
 Return ONLY a valid JSON object with this exact structure:
 
 {
@@ -108,6 +115,21 @@ Return ONLY a valid JSON object with this exact structure:
     "vague_language_count": <number of vague terms found>,
     "hard_metrics_found": <number of specific metrics with units>
   },
+  "co2_analysis": {
+    "current_emissions": "Estimated or reported CO2 emissions",
+    "reduction_potential": "Percentage that could be reduced",
+    "recommendations": [
+      {
+        "action": "Specific action to take",
+        "impact": "Expected CO2 reduction (tons/year)",
+        "priority": "HIGH | MEDIUM | LOW",
+        "timeline": "Implementation timeframe",
+        "cost_benefit": "Cost vs savings estimate"
+      }
+    ],
+    "industry_benchmarks": "How company compares to industry average",
+    "certifications_to_pursue": ["List of recommended certifications"]
+  },
   "admin_brief": "Confidential legal risk summary for government officials.",
   "client_feedback": "Constructive improvement suggestions for the company."
 }
@@ -119,7 +141,8 @@ CRITICAL RULES:
 4. All scores must be integers between 0-100
 5. Traffic light MUST match the score thresholds exactly
 6. If no contradictions found, return empty array: []
-7. Always provide at least 3 major commitments if document contains them"""
+7. Always provide at least 3 CO2 reduction recommendations
+8. Recommendations should be specific to the company's industry"""
 
 
 def build_analysis_prompt(pdf_text: str, news_data: str) -> str:

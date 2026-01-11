@@ -11,6 +11,7 @@ import CompanyList from '../components/CompanyList';
 import CreditAssignmentModal from '../components/CreditAssignmentModal';
 import AdminStatsCharts from '../components/AdminStatsCharts';
 import UploadHistory from '../components/UploadHistory';
+import CO2Recommendations from '../components/CO2Recommendations';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   analyzeReport, previewPdf, getAllCompanies, getAdminStats, 
@@ -319,6 +320,13 @@ export default function AdminDashboard() {
                     <p className="text-slate-300 leading-relaxed">{result.admin_brief}</p>
                   </div>
                 </div>
+
+                {/* CO2 Recommendations */}
+                {result.co2_analysis && (
+                  <div className="lg:col-span-3">
+                    <CO2Recommendations co2Analysis={result.co2_analysis} />
+                  </div>
+                )}
               </>
             )}
 

@@ -103,4 +103,9 @@ export async function getUserCredits(userId) {
   return response.data;
 }
 
+export async function getPublicStats() {
+  const response = await api.get('/public/stats');
+  return response.data;
+}
+
 export default api;

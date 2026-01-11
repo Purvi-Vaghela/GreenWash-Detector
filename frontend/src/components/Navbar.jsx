@@ -1,6 +1,6 @@
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { Leaf, LogOut, Shield, Building2, Info } from 'lucide-react';
+import { Leaf, LogOut, Shield, Building2, Info, BarChart3 } from 'lucide-react';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -26,6 +26,13 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-4">
+            <Link
+              to="/co2-report"
+              className="flex items-center gap-1 px-3 py-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition text-sm"
+            >
+              <BarChart3 className="w-4 h-4" />
+              CO₂ Report
+            </Link>
             <Link
               to="/about"
               className="flex items-center gap-1 px-3 py-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition text-sm"
