@@ -1,1 +1,0 @@
-# GreenWash Detector Backend
